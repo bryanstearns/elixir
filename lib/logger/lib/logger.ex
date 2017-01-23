@@ -729,11 +729,6 @@ defmodule Logger do
       18:37:35.413 [info]  after: [2, 4, 6]
 
   """
-  # My second version, my first macro ever. Works when it's the only
-  # Logger.inspect call in a pipeline, but when there's more than one,
-  # (as in the example in the @doc above), the second call receives the
-  # AST of the entire pipeline before it -- in evaluating that AST, the
-  # first call is repeated, so extra output is produced.
   defmacro inspect(term, opts \\ [], metadata \\ []) do
     level = opts[:level] || :debug
     label = if opts[:label], do: [to_string(opts[:label]), ": "], else: []
@@ -741,7 +736,16 @@ defmodule Logger do
       Logger.bare_log(unquote(level),
                      fn -> [unquote(label), Kernel.inspect(unquote(term), unquote(opts))] end,
                      unquote(caller_info(__CALLER__)) ++ unquote(metadata))
-      unquote(term)
+      unquote(remove_inspect_calls(term))
     end
+  end
+
+  defp remove_inspect_calls(ast) do
+    Macro.prewalk(ast, fn
+      # Match calls to Logger.inspect(x, ...) and replace them with x
+      # Is there a better way?
+      {{:., _, [{:__aliases__, _, [:Logger]}, :inspect]}, _, [term | _rest]} -> term
+      node -> node
+    end)
   end
 end
