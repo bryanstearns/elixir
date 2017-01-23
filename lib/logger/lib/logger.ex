@@ -630,15 +630,16 @@ defmodule Logger do
   end
 
   defp macro_log(level, data, metadata, caller) do
+    quote do
+      Logger.bare_log(unquote(level), unquote(data), unquote(caller_info(caller)) ++ unquote(metadata))
+    end
+  end
+
+  defp caller_info(caller) do
     %{module: module, function: fun, file: file, line: line} = caller
 
-    caller =
-      compile_time_application() ++
-        [module: module, function: form_fa(fun), file: file, line: line]
-
-    quote do
-      Logger.bare_log(unquote(level), unquote(data), unquote(caller) ++ unquote(metadata))
-    end
+    compile_time_application() ++
+      [module: module, function: form_fa(fun), file: file, line: line]
   end
 
   defp compile_time_application do
@@ -728,12 +729,19 @@ defmodule Logger do
       18:37:35.413 [info]  after: [2, 4, 6]
 
   """
-  # My first version, non-macro. Test failed because the logged metadata
-  # records this as the logging caller, not the caller of this method.
-  def inspect(term, opts \\ [], metadata \\ []) do
+  # My second version, my first macro ever. Works when it's the only
+  # Logger.inspect call in a pipeline, but when there's more than one,
+  # (as in the example in the @doc above), the second call receives the
+  # AST of the entire pipeline before it -- in evaluating that AST, the
+  # first call is repeated, so extra output is produced.
+  defmacro inspect(term, opts \\ [], metadata \\ []) do
     level = opts[:level] || :debug
     label = if opts[:label], do: [to_string(opts[:label]), ": "], else: []
-    log(level, fn -> [label, Kernel.inspect(term, opts)] end, metadata)
-    term
+    quote do
+      Logger.bare_log(unquote(level),
+                     fn -> [unquote(label), Kernel.inspect(unquote(term), unquote(opts))] end,
+                     unquote(caller_info(__CALLER__)) ++ unquote(metadata))
+      unquote(term)
+    end
   end
 end

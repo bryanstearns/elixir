@@ -234,6 +234,22 @@ defmodule LoggerTest do
     assert capture_log(fn ->
       assert Logger.inspect([], label: "foo", level: :info) == []
     end) =~ msg_with_meta("[info]  foo: []")
+
+    logged = capture_log(fn ->
+      [1, 2, 3]
+      |> Logger.inspect(label: "before")
+      |> Enum.map(&(&1 * 2))
+      |> Logger.inspect(label: "after")
+    end)
+    expected = [
+      msg_with_meta("[debug] before: [1, 2, 3]"),
+      msg_with_meta("[debug] after: [2, 4, 6]")
+    ]
+    |> Enum.map(&Regex.source/1)
+    |> Enum.join("\n\n")
+    |> Regex.compile!()
+    assert logged =~ expected
+    assert length(String.split(logged, "\n\n")) == 2
   end
 
   test "remove unused calls at compile time" do
