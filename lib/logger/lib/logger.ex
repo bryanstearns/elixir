@@ -703,4 +703,37 @@ defmodule Logger do
       :ok
     end
   end
+
+  @doc """
+  Log the inspection of an object.
+
+  Returns the object unchanged, like `IO.inspect/2`, making it possible
+  to "spy" on values by inserting a `Logger.inspect/3` call in the middle
+  of a pipeline.
+
+  The `:level` option will override the default `debug` logging level. See
+  `IO.inspect/2` for remaining options; the `:label` option is especially
+  handy.
+
+  ## Examples
+
+      [1, 2, 3]
+      |> Logger.inspect(label: "before")
+      |> Enum.map(&(&1 * 2))
+      |> Logger.inspect(label: "after", level: :info)
+
+  Produces log entries
+
+      18:37:35.412 [debug] before: [1, 2, 3]
+      18:37:35.413 [info]  after: [2, 4, 6]
+
+  """
+  # My first version, non-macro. Test failed because the logged metadata
+  # records this as the logging caller, not the caller of this method.
+  def inspect(term, opts \\ [], metadata \\ []) do
+    level = opts[:level] || :debug
+    label = if opts[:label], do: [to_string(opts[:label]), ": "], else: []
+    log(level, fn -> [label, Kernel.inspect(term, opts)] end, metadata)
+    term
+  end
 end

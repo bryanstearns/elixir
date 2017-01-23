@@ -214,6 +214,28 @@ defmodule LoggerTest do
     end) =~ msg_with_meta("[error] hello")
   end
 
+  test "inspect/3" do
+    assert capture_log(fn ->
+      assert Logger.inspect("hello") == "hello"
+    end) =~ msg_with_meta("[debug] \"hello\"")
+
+    assert capture_log(fn ->
+      assert Logger.inspect(1, [], [application: :metadata]) == 1
+    end) =~ msg("application=metadata module=LoggerTest [debug] 1")
+
+    assert capture_log(fn ->
+      assert Logger.inspect(:bar, label: "foo") == :bar
+    end) =~ msg_with_meta("[debug] foo: :bar")
+
+    assert capture_log(fn ->
+      assert Logger.inspect(%{}, label: :foo) == %{}
+    end) =~ msg_with_meta("[debug] foo: %{}")
+
+    assert capture_log(fn ->
+      assert Logger.inspect([], label: "foo", level: :info) == []
+    end) =~ msg_with_meta("[info]  foo: []")
+  end
+
   test "remove unused calls at compile time" do
     Logger.configure(compile_time_purge_level: :info)
 
